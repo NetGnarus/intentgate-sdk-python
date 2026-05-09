@@ -32,7 +32,6 @@ from intentgate import (
     ProtocolError,
 )
 
-
 URL = "http://gateway.test"
 ENDPOINT = URL + "/v1/mcp"
 
@@ -73,8 +72,9 @@ def test_tool_call_returns_parsed_result() -> None:
         return_value=httpx.Response(200, json=_allow(content_text="hello"))
     )
     gw = Gateway(URL, token="t0k3n")
-    res = gw.tool_call("read_invoice", arguments={"id": "123"},
-                        intent_prompt="Process today AP invoices")
+    res = gw.tool_call(
+        "read_invoice", arguments={"id": "123"}, intent_prompt="Process today AP invoices"
+    )
     assert route.called
     assert res.content[0].type == "text"
     assert res.content[0].text == "hello"
@@ -96,8 +96,7 @@ def test_request_shape_matches_mcp_spec() -> None:
     respx.post(ENDPOINT).mock(side_effect=_capture)
 
     gw = Gateway(URL, token="abc")
-    gw.tool_call("read_invoice", arguments={"id": "1"},
-                  intent_prompt="Process invoices")
+    gw.tool_call("read_invoice", arguments={"id": "1"}, intent_prompt="Process invoices")
 
     assert captured["body"]["jsonrpc"] == "2.0"
     assert captured["body"]["method"] == "tools/call"
@@ -162,7 +161,7 @@ def test_no_token_omits_authorization_header() -> None:
 
 
 @pytest.mark.parametrize(
-    "code, exc_class",
+    ("code", "exc_class"),
     [
         (-32010, CapabilityError),
         (-32011, IntentError),
@@ -236,7 +235,7 @@ def test_network_error_raises_gateway_error() -> None:
 
 
 def test_empty_tool_rejected_client_side() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="tool is required"):
         Gateway(URL).tool_call("")
 
 

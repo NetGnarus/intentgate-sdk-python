@@ -13,8 +13,9 @@ asks; not on the v0.1 critical path.
 from __future__ import annotations
 
 import itertools
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any
 
 import httpx
 
@@ -177,9 +178,7 @@ class Gateway:
         try:
             resp = self._client.post(self._url + "/v1/mcp", json=body, headers=headers)
         except httpx.HTTPError as e:
-            raise exceptions.GatewayError(
-                f"transport error: {e!s}", code=0, data=None
-            ) from e
+            raise exceptions.GatewayError(f"transport error: {e!s}", code=0, data=None) from e
 
         if resp.status_code // 100 != 2:
             raise exceptions.GatewayError(
@@ -191,9 +190,7 @@ class Gateway:
         try:
             payload = resp.json()
         except ValueError as e:
-            raise exceptions.GatewayError(
-                f"non-JSON response: {e!s}", code=0
-            ) from e
+            raise exceptions.GatewayError(f"non-JSON response: {e!s}", code=0) from e
 
         return _parse_response(payload)
 
@@ -209,7 +206,7 @@ class Gateway:
         if self._owns_client:
             self._client.close()
 
-    def __enter__(self) -> "Gateway":
+    def __enter__(self) -> Gateway:
         return self
 
     def __exit__(self, *_: object) -> None:
@@ -234,9 +231,7 @@ def _parse_response(payload: dict) -> ToolCallResult:
 
     result = payload.get("result")
     if not isinstance(result, dict):
-        raise exceptions.ProtocolError(
-            "response missing 'result' object", code=0, data=payload
-        )
+        raise exceptions.ProtocolError("response missing 'result' object", code=0, data=payload)
 
     raw_content = result.get("content") or []
     content = [
