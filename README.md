@@ -1,9 +1,21 @@
 # IntentGate Python SDK
 
+[![CI](https://github.com/NetGnarus/intentgate-sdk-python/actions/workflows/ci.yml/badge.svg)](https://github.com/NetGnarus/intentgate-sdk-python/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/intentgate.svg)](https://pypi.org/project/intentgate/)
+[![Python versions](https://img.shields.io/pypi/pyversions/intentgate.svg)](https://pypi.org/project/intentgate/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 The official Python client for the
 [IntentGate authorization gateway](https://github.com/NetGnarus/intentgate-gateway).
 
-License: **Apache 2.0**.
+## Companion repositories
+
+| Repo | Purpose |
+| ---- | ------- |
+| [intentgate-gateway](https://github.com/NetGnarus/intentgate-gateway) | Go gateway with the four-check pipeline. The thing this SDK talks to. |
+| [intentgate-extractor](https://github.com/NetGnarus/intentgate-extractor) | Optional FastAPI service that turns user prompts into structured intent. |
+| [intentgate-sdk-python](https://github.com/NetGnarus/intentgate-sdk-python) | Python SDK for agents (this repo). |
+| [intentgate-helm](https://github.com/NetGnarus/intentgate-helm) | Helm chart that deploys the gateway, extractor, and Redis to Kubernetes. |
 
 ## What it is
 
@@ -35,8 +47,15 @@ catch.
 pip install intentgate
 ```
 
-(Once published to PyPI. While the package is pre-release, install
-straight from GitHub: `pip install git+https://github.com/NetGnarus/intentgate-sdk-python.git`.)
+Released versions are published to [PyPI](https://pypi.org/project/intentgate/)
+on every `vX.Y.Z` git tag via signed OIDC trusted publishing — see
+`.github/workflows/release.yml`.
+
+To install the development tip:
+
+```sh
+pip install git+https://github.com/NetGnarus/intentgate-sdk-python.git
+```
 
 ## Exception hierarchy
 
@@ -133,13 +152,29 @@ class FinanceAgent:
 ## Develop locally
 
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install -e ".[dev]"
-.venv/bin/pytest
+make install     # creates .venv, installs -e ".[dev]"
+make lint        # ruff check + ruff format --check
+make lint-fix    # auto-fix lint + format
+make test        # pytest
+make build       # sdist + wheel into dist/ (sanity check before tagging a release)
 ```
 
 Tests use `respx` to mock httpx at the transport level — no real
 network required, no running gateway needed.
+
+## Project layout
+
+```
+src/intentgate/
+  __init__.py         # public API: Gateway, exceptions, dataclasses
+  client.py           # Gateway client + ToolCallResult dataclasses
+  exceptions.py       # IntentGateError hierarchy (CapabilityError, IntentError, ...)
+tests/
+  test_client.py      # respx-mocked HTTP behavior
+.github/workflows/    # CI (lint + tests across Python 3.10–3.13) and release (publish to PyPI on tag)
+Makefile              # install / lint / lint-fix / test / build / clean
+pyproject.toml        # hatchling build, ruff config, pytest config
+```
 
 ## Versioning
 
@@ -147,7 +182,14 @@ Pre-release. The wire protocol with the gateway is stable (JSON-RPC
 2.0 + the IntentGate-specific error codes), but the Python API surface
 may change before `1.0.0`. Pin to a minor version when integrating.
 
-## See also
+## Contributing
 
-- [IntentGate gateway](https://github.com/NetGnarus/intentgate-gateway) — the Go binary this SDK talks to.
-- [IntentGate extractor](https://github.com/NetGnarus/intentgate-extractor) — the optional Python service that turns user prompts into structured intent.
+Apache 2.0 and welcomes community contributions. A formal `CONTRIBUTING.md`
+is coming with the v0.1 → v1.0 polish pass. For now, please open an
+issue to discuss any non-trivial change before sending a PR.
+
+## Security
+
+If you find a security vulnerability, please **do not** open a public
+issue. Email security@netgnarus.com (or open a GitHub Security Advisory
+on this repo) and we'll respond within two business days.
