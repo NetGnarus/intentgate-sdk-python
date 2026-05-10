@@ -85,24 +85,28 @@ def _b64url_encode(b: bytes) -> str:
     return base64.urlsafe_b64encode(b).rstrip(b"=").decode("ascii")
 
 
-def _make_fake_parent(jti: str = "root-jti-1") -> str:
+def _make_fake_parent(jti: str = "root-jti-1", tenant: str = "default") -> str:
     """Produce a token whose signature is a known HMAC chain seeded
     from a fake master key. Used to drive attenuation tests without
     standing up a Go gateway in pytest.
+
+    Mirrors gateway capability v3 (gateway 0.9+): adds the `tenant`
+    field, signed in the canonicalPayload.
     """
     master_key = b"x" * 32
     payload = {
-        "v": 2,
+        "v": 3,
         "jti": jti,
         "root_jti": jti,
         "iss": "intentgate",
+        "tenant": tenant,
         "sub": "agent-x",
         "iat": 1700000000,
     }
     # Reproduce Go's canonicalPayload byte order: v, jti, root_jti, iss,
-    # sub, iat, nbf. We omit nbf because it's zero.
+    # tenant, sub, iat, nbf. We omit nbf because it's zero.
     payload_bytes = json.dumps(
-        {k: payload[k] for k in ("v", "jti", "root_jti", "iss", "sub", "iat")},
+        {k: payload[k] for k in ("v", "jti", "root_jti", "iss", "tenant", "sub", "iat")},
         separators=(",", ":"),
     ).encode("ascii")
     sig = hmac.new(master_key, payload_bytes, sha256).digest()
@@ -113,10 +117,11 @@ def _make_fake_parent(jti: str = "root-jti-1") -> str:
     sig = hmac.new(sig, cb, sha256).digest()
 
     token = {
-        "v": 2,
+        "v": 3,
         "jti": jti,
         "root_jti": jti,
         "iss": "intentgate",
+        "tenant": tenant,
         "sub": "agent-x",
         "iat": 1700000000,
         "cav": [cav.to_dict()],
@@ -149,6 +154,34 @@ def test_attenuate_preserves_root_jti_and_subject():
     child = decode_token(child_str)
     assert child["root_jti"] == "root-A"
     assert child["sub"] == "agent-x"
+
+
+def test_attenuate_preserves_tenant():
+    """A child token MUST stay in the parent's tenant. Cryptographically
+    enforced by the gateway (tenant is signed in canonicalPayload), so
+    the SDK just propagates the field unchanged."""
+    parent_str = _make_fake_parent("root-A", tenant="acme")
+    child_str = attenuate(parent_str, add_tools=["read"])
+    child = decode_token(child_str)
+    assert child["tenant"] == "acme"
+
+
+def test_attenuate_rejects_token_without_tenant():
+    """Tokens minted by gateway < v0.9 carry no tenant and should be
+    rejected by the SDK so the operator sees the deprecation clearly."""
+    legacy_v2 = {
+        "v": 2,
+        "jti": "old-jti",
+        "root_jti": "old-jti",
+        "iss": "intentgate",
+        "sub": "agent-x",
+        "iat": 1700000000,
+        "cav": [],
+        "sig": _b64url_encode(b"x" * 32),
+    }
+    encoded = _b64url_encode(json.dumps(legacy_v2).encode("utf-8"))
+    with pytest.raises(AttenuationError, match="tenant"):
+        attenuate(encoded, add_tools=["read"])
 
 
 def test_attenuate_chained_max_calls_then_expiry():

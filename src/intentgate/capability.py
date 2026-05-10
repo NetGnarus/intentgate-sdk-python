@@ -156,6 +156,12 @@ def attenuate(
     expires_at: int | None = None,
     extra: list[Caveat] | None = None,
 ) -> str:
+    # Tenant: gateway v0.9+ tokens carry a `tenant` field. Children
+    # inherit the parent's tenant unchanged — attenuation cannot pivot
+    # tenants. The cryptographic chain enforces this (canonicalPayload
+    # signs the tenant), so we don't need to re-validate here, but a
+    # deliberate readability comment lives at the call site that builds
+    # the child JSON below.
     """Append narrowing caveats to ``token`` and return a new token string.
 
     Each keyword groups one common attenuation pattern. Multiple kwargs
@@ -195,6 +201,8 @@ def attenuate(
         raise AttenuationError("token is missing 'cav' field")
     if not parsed.get("root_jti"):
         raise AttenuationError("token has no root_jti (was it minted by gateway < v0.7?)")
+    if not parsed.get("tenant"):
+        raise AttenuationError("token has no tenant (was it minted by gateway < v0.9?)")
 
     parent_sig = _b64url_decode(parsed["sig"])
     cavs: list[dict[str, Any]] = list(parsed["cav"])
