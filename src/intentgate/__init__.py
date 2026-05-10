@@ -13,6 +13,12 @@ exception carries which check fired and why. See `exceptions` for the
 full hierarchy.
 """
 
+from intentgate.capability import (
+    AttenuationError,
+    Caveat,
+    attenuate,
+    decode_token,
+)
 from intentgate.client import (
     ContentBlock,
     Gateway,
@@ -41,6 +47,10 @@ __all__ = [
     "IntentError",
     "PolicyError",
     "BudgetError",
+    "attenuate",
+    "Caveat",
+    "AttenuationError",
+    "decode_token",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
